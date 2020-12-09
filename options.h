@@ -36,4 +36,6 @@ void usage(char *pname);
 
 void chandle_getopt(options_t *options);
 
+int missing_option(char *pname, char option);
+
 #endif

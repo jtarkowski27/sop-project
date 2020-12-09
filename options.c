@@ -12,7 +12,6 @@ int missing_option(char *pname, char option)
     return 0;
 }
 
-
 void chandle_getopt(options_t *options)
 {
     int c;
