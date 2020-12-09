@@ -14,16 +14,19 @@
 
 int main(int argc, char **argv)
 {
-    options_t *options = (options_t *)malloc(sizeof(options_t));
-    options->argc = argc;
-    options->argv = argv;
+    options_t *OPT = (options_t *)malloc(sizeof(options_t));
+    OPT->argc = argc;
+    OPT->argv = argv;
     
-    options->PARTS_COUNT = 0;
-    options->START_DATE = NULL;
-    options->FINAL_DATE = NULL;
+    OPT->PARTS_COUNT = 0;
+    
+    if (getcwd(OPT->PATH, MAX_ARG_LENGTH) == NULL) 
+        ERR("getcwd");
+    strncpy(OPT->CSV_FILENAME, DEFAULT_CSV_FILENAME, MAX_ARG_LENGTH + 1);
+    strncpy(OPT->LOG_FILENAME, DEFAULT_LOG_FILENAME, MAX_ARG_LENGTH + 1);
 
-    chandle_getopt(options);
+    chandle_getopt(OPT);
 
-    free(options);
+    free(OPT);
     exit(EXIT_SUCCESS);
 }

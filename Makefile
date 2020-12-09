@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS= -std=gnu99 -Wall
 LDLIBS = -lpthread -lm
 DEPS = options.h
-OBJ = main.o options.o
+OBJ = main.o options.o file_analysis.o
 
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $< $(LDLIBS)
