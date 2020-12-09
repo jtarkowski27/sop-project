@@ -11,6 +11,7 @@
 #include <errno.h>
 
 #include "options.h"
+#include "file_analysis.h"
 
 int main(int argc, char **argv)
 {

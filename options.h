@@ -15,6 +15,8 @@
 #include <errno.h>
 #include <time.h>
 
+#include "regex_match.h"
+
 #define SHORTOPTS "e:s:k:d::n::b::"
 
 // #define DEFAULTPATH "e:s:k:d::n::b::"
@@ -32,10 +34,6 @@
 #define DOT_DELIM "."
 #define COLON_DELIM ":"
 
-
-#define ERR(source) (perror(source),\
-                     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
-                     exit(EXIT_FAILURE))
 
 #define CASE(N) case N: 
 
@@ -68,8 +66,6 @@ void chandle_getopt(options_t *OPT);
 int missing_option(char *pname, char option);
 
 void invalid_argument(char *pname, char option);
-
-void match(options_t *OPT, const char *string, char *pattern);
 
 void convert_date(options_t *OPT, struct tm **tm_date);
 

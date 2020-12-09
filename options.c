@@ -18,23 +18,6 @@ void invalid_argument(char *pname, char option)
     usage(pname);
 }
 
-void match(options_t *OPT, const char *string, char *pattern)
-{
-    int reti;
-    int status;
-    regex_t re;
-
-    if ((reti = regcomp(&re, pattern, REG_EXTENDED | REG_NOSUB)) != 0) 
-        ERR("regcomp");
-
-    status = regexec(&re, string, (size_t)0, NULL, 0);
-    
-    regfree(&re);
-
-    if (status == REG_NOMATCH) 
-        invalid_argument(OPT->argv[0], OPT->c);
-}
-
 void print_time(struct tm *tm_date)
 {
     printf("date: ");
@@ -53,7 +36,8 @@ void convert_date(options_t *OPT, struct tm **tm_date)
 
     strncpy(date, optarg, DATE_LENGTH + 1);
     
-    match(OPT, date, DATE_REGEX);
+    if (!match(date, DATE_REGEX))
+        invalid_argument(OPT->argv[0], OPT->c);
 
     day = strtok(date, UNDERSCORE_DELIM);
     hour = strtok(NULL, UNDERSCORE_DELIM);
