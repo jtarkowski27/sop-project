@@ -14,6 +14,7 @@
 #include <errno.h>
 
 #include "options.h"
+#include "avl_tree.h"
 
 #define MAXLINE 4096
 #define SOLUTION_REGEX "^\w+(\.etap\d)?\.(tar\.gz|tar\.bz2|tar\.xz|zip)$"

@@ -33,9 +33,8 @@ void convert_date(options_t *OPT, struct tm **tm_date)
     char date[DATE_LENGTH + 1];
     char *day, *hour;
 
-
     strncpy(date, optarg, DATE_LENGTH + 1);
-    
+
     if (!match(date, DATE_REGEX))
         invalid_argument(OPT->argv[0], OPT->c);
 
@@ -44,7 +43,7 @@ void convert_date(options_t *OPT, struct tm **tm_date)
 
     *tm_date = (struct tm *)malloc(sizeof(struct tm));
 
-    if (!(*tm_date)) 
+    if (!(*tm_date))
         ERR("malloc");
 
     (*tm_date)->tm_mday = strtol(strtok(day, DOT_DELIM), (char **)NULL, 0);
@@ -65,46 +64,46 @@ void chandle_getopt(options_t *OPT)
     {
         switch (OPT->c)
         {
-            case 'e':
+        case 'e':
             option_e(OPT);
             break;
-                
-            case 's':
+
+        case 's':
             option_s(OPT);
             break;
 
-            case 'k':
+        case 'k':
             option_k(OPT);
             break;
 
-            case 'd':
+        case 'd':
             option_d(OPT);
             break;
 
-            case 'n':
+        case 'n':
             option_n(OPT);
             break;
 
-            case 'b':
+        case 'b':
             option_b(OPT);
             break;
 
-            default:
+        default:
             usage(OPT->argv[0]);
             break;
         }
     }
 
-    if (!(OPT->PARTS_COUNT)) 
+    if (!(OPT->PARTS_COUNT))
         err = missing_option(OPT->argv[0], 'e');
-    if (!(OPT->START_DATE)) 
+    if (!(OPT->START_DATE))
         err = missing_option(OPT->argv[0], 's');
-    if (!(OPT->FINAL_DATE)) 
+    if (!(OPT->FINAL_DATE))
         err = missing_option(OPT->argv[0], 'k');
 
     printf("PATH: %s\n", OPT->PATH);
-    
-    if (!err) 
+
+    if (!err)
         usage(OPT->argv[0]);
 }
 

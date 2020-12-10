@@ -3,10 +3,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include "regex_match.h"
 
 #define MAX_ID_LENGTH 200
 
 #define CMP(s1, s2) (strcmp((s1)->ID, (s2)->ID))
+#define CMP_ID(s1, s2) (strcmp((s1), (s2)->ID))
 
 typedef struct stud
 {
@@ -32,12 +35,10 @@ void lr_rotation(node_t **p);
 
 void rl_rotation(node_t **p);
 
-void insert(int v, node_t **root, int *h);
-
-void print(node *root);
-
-node_t *search(int value, node_t *root);
+void insert(stud_t *stud, node_t **root, int *h);
 
 void print(node_t *root);
+
+node_t *search(char *ID, node_t *root);
 
 #endif

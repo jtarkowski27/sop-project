@@ -1,4 +1,3 @@
-
 #include "avl_tree.h"
 
 void rr_rotation(node_t **p)
@@ -39,6 +38,8 @@ void insert(stud_t *stud, node_t **root, int *h)
     if (!(*root))
     {
         (*root) = (node_t *)malloc(sizeof(node_t));
+        if (!root)
+            ERR("malloc");
         (*root)->stud = stud;
         (*root)->left = (*root)->right = NULL;
         (*root)->bl = 0;
@@ -52,21 +53,21 @@ void insert(stud_t *stud, node_t **root, int *h)
         {
             switch ((*root)->bl)
             {
-                case 1:
-                    ptr = (*root)->left;
-                    if (ptr->bl == 1 || ptr->bl == 0)
-                        ll_rotation(root);
-                    else
-                        lr_rotation(root);
-                    *h = 0;
-                    break;
-                case 0:
-                    (*root)->bl = 1;
-                    break;
-                case -1:
-                    (*root)->bl = 0;
-                    *h = 0;
-                    break;
+            case 1:
+                ptr = (*root)->left;
+                if (ptr->bl == 1 || ptr->bl == 0)
+                    ll_rotation(root);
+                else
+                    lr_rotation(root);
+                *h = 0;
+                break;
+            case 0:
+                (*root)->bl = 1;
+                break;
+            case -1:
+                (*root)->bl = 0;
+                *h = 0;
+                break;
             }
         }
         return;
@@ -74,36 +75,37 @@ void insert(stud_t *stud, node_t **root, int *h)
     if (CMP(stud, (*root)->stud) == -1)
     {
         insert(stud, &((*root)->right), h);
-        if (*h) {
+        if (*h)
+        {
             switch ((*root)->bl)
             {
-                case 1:
-                    (*root)->bl = 0;
-                    *h = 0;
-                    break;
-                case 0:
-                    (*root)->bl = 1;
-                    break;
-                case -1:
-                    ptr = (*root)->right;
-                    if (ptr->bl == 1 || ptr->bl == 0)
-                        rr_rotation(root);
-                    else
-                        rl_rotation(root);
-                    *h = 0;
-                    break;
+            case 1:
+                (*root)->bl = 0;
+                *h = 0;
+                break;
+            case 0:
+                (*root)->bl = 1;
+                break;
+            case -1:
+                ptr = (*root)->right;
+                if (ptr->bl == 1 || ptr->bl == 0)
+                    rr_rotation(root);
+                else
+                    rl_rotation(root);
+                *h = 0;
+                break;
             }
         }
         return;
     }
 }
 
-node_t *search(int value, node_t *root)
+node_t *search(char *ID, node_t *root)
 {
     node_t *p = root;
-    while (p && value != p->key)
+    while (p && CMP_ID(ID, p->stud))
     {
-        if (value < p->key)
+        if (CMP_ID(ID, p->stud) < 0)
             p = p->left;
         else
             p = p->right;
