@@ -6,18 +6,23 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-#include <unistd.h>
 #include <getopt.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <regex.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <unistd.h>
 #include <string.h>
-#include <errno.h>
 #include <time.h>
+#include <pthread.h>
+#include <errno.h>
 
 #include "regex_match.h"
+#include "avl_tree.h"
 
-#define SHORTOPTS "e:s:k:d::n::b::"
+#define SHORTOPTS "e:s:k:d:n:b:"
 
 // #define DEFAULTPATH "e:s:k:d::n::b::"
 #define DATE_REGEX "^[0-9]{2}.[0-9]{2}.[0-9]{4}_[0-9]{2}:[0-9]{2}$"
@@ -50,6 +55,9 @@ typedef struct options
     char PATH[MAX_ARG_LENGTH + 1];
     char CSV_FILENAME[MAX_ARG_LENGTH + 1];
     char LOG_FILENAME[MAX_ARG_LENGTH + 1];
+
+    node_t *data_root;
+    pthread_mutex_t *mx_data_root;
 } options_t;
 
 void option_e(options_t *OPT);

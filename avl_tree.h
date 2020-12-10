@@ -1,5 +1,5 @@
-#ifndef OPTIONS_H
-#define OPTIONS_H
+#ifndef AVL_TREE_H
+#define AVL_TREE_H
 
 #include <stdlib.h>
 #include <string.h>

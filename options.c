@@ -109,7 +109,7 @@ void chandle_getopt(options_t *OPT)
 
 void option_e(options_t *OPT)
 {
-    OPT->PARTS_COUNT = atoi(optarg);
+    OPT->PARTS_COUNT = strtol(optarg, NULL, 0);
     if (OPT->PARTS_COUNT < 1 || OPT->PARTS_COUNT > 9)
         invalid_argument(OPT->argv[0], OPT->c);
 }
@@ -126,11 +126,13 @@ void option_k(options_t *OPT)
 
 void option_d(options_t *OPT)
 {
-    strncpy(OPT->PATH, optarg, MAX_ARG_LENGTH + 1);
+    strncpy(OPT->PATH, optarg, MAX_ARG_LENGTH);
 }
 
 void option_n(options_t *OPT)
 {
+    
+    printf("%s", OPT->CSV_FILENAME);
     strncpy(OPT->CSV_FILENAME, optarg, MAX_ARG_LENGTH + 1);
 }
 
