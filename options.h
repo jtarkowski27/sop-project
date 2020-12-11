@@ -52,8 +52,8 @@ typedef struct options
     time_t START_DATE;
     time_t FINAL_DATE;
 
-    char START_DATE_c[DATE_LENGTH];
-    char FINAL_DATE_c[DATE_LENGTH];
+    char START_DATE_c[DATE_LENGTH + 1];
+    char FINAL_DATE_c[DATE_LENGTH + 1];
 
     char PATH[MAX_ARG_LENGTH + 1];
     char CSV_FILENAME[MAX_ARG_LENGTH + 1];
@@ -62,9 +62,11 @@ typedef struct options
     student_t *data;
     pthread_mutex_t *mx_data;
 
-    mistake_t *mistake_data;
+    struct dirent *ent;
+    pthread_mutex_t *mx_ent;
     int data_length;
 
+    pthread_t threads[3];
 } options_t;
 
 void option_e(options_t *OPT);

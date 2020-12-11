@@ -1,4 +1,5 @@
-#ifndef FILE_ANALYSIS_H
+#ifndef MISTAKE_HANDLER_H
+#define MISTAKE_HANDLER_H
 
 #define _XOPEN_SOURCE 500 
 #define __USE_XOPEN_EXTENDED 500
@@ -23,16 +24,8 @@
 #define MAXFD 20
 
 #include "options.h"
-// #include "avl_tree.h"
+#include "regex_match.h"
 
-#define MAXLINE 4096
-
-#define DEFAULT_STUDENT_COUNT 100
-
-void *file_analysis(void *void_args);
-
-int walk(const char *name, const struct stat *s, int type, struct FTW *f);
-
-void scan_dir(options_t *OPT, char *path);
+void *mistake_handler(void *void_args);
 
 #endif

@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS= -std=gnu99 -Wall
 LDLIBS = -lpthread -lm
 DEPS = options.h
-OBJ = main.o options.o file_analysis.o regex_match.o avl_tree.o
+OBJ = main.o options.o file_analysis.o regex_match.o result_handler.o mistake_handler.o
 
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $< $(LDLIBS)

@@ -61,21 +61,12 @@ void convert_date(options_t *OPT, char *r_time_c, time_t *r_time)
 {
     char date[MAX_ARG_LENGTH];
     struct tm tm;
-    
-    // strncpy(r_time_c, optarg, DATE_LENGTH + 1);
+    strncpy(date, optarg, MAX_ARG_LENGTH);
+    strncpy(r_time_c, optarg, MAX_ARG_LENGTH);
 
-    if (!match(optarg, DATE_REGEX))
-        invalid_argument(OPT->argv[0], OPT->c);
+    if (!match(r_time_c, DATE_REGEX)) invalid_argument(OPT->argv[0], OPT->c);
+	if (strptime(r_time_c, "%d.%m.%Y_%H:%M", &tm) == NULL) ERR("strptime");
 
-    strncpy(r_time_c, optarg, DATE_LENGTH + 1);
-
-	if (strptime(r_time_c, "%d.%m.%Y_%H:%M", &tm) == NULL)
-		ERR("strptime");
-
-    
-    // printf("date: %ld\n", mktime(&tm));
-    
-	// *r_time = mktime(&tm);
 	*r_time = mktime(&tm);
 }
 
@@ -139,29 +130,24 @@ void option_e(options_t *OPT)
 void option_s(options_t *OPT)
 {
     convert_date(OPT, OPT->START_DATE_c, &(OPT->START_DATE));
-    printf("date: %ld\n", OPT->START_DATE);
 }
 
 void option_k(options_t *OPT)
 {
     convert_date(OPT, OPT->FINAL_DATE_c, &(OPT->FINAL_DATE));
-    printf("date: %ld\n", OPT->FINAL_DATE);
-
 }
 
 void option_d(options_t *OPT)
 {
-    strncpy(OPT->PATH, optarg, MAX_ARG_LENGTH);
+    strncpy(OPT->PATH, optarg, sizeof(OPT->PATH));
 }
 
 void option_n(options_t *OPT)
 {
-    
-    printf("%s", OPT->CSV_FILENAME);
-    strncpy(OPT->CSV_FILENAME, optarg, MAX_ARG_LENGTH + 1);
+    strncpy(OPT->CSV_FILENAME, optarg, sizeof(OPT->CSV_FILENAME));
 }
 
 void option_b(options_t *OPT)
 {
-    strncpy(OPT->LOG_FILENAME, optarg, MAX_ARG_LENGTH + 1);
+    strncpy(OPT->LOG_FILENAME, optarg, sizeof(OPT->LOG_FILENAME));
 }
