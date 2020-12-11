@@ -1,124 +1,145 @@
 #include "avl_tree.h"
 
-void rr_rotation(node_t **p)
+int height(node_t *N)
 {
-    node_t *x = (*p)->right;
-    (*p)->right = x->left;
-    x->left = (*p);
-    (*p)->bl = (x->bl == -1) ? 0 : -1;
-    x->bl = (x->bl == 0) ? 1 : 0;
-    (*p) = x;
+    if (N == NULL)
+        return 0;
+    return N->height;
 }
 
-void ll_rotation(node_t **p)
+int max(int a, int b)
 {
-    node_t *x = (*p)->left;
-    (*p)->left = x->right;
-    x->right = (*p);
-    (*p)->bl = (x->bl == 1) ? 0 : 1;
-    x->bl = (x->bl == 0) ? -1 : 0;
-    (*p) = x;
+    return (a > b) ? a : b;
 }
 
-void lr_rotation(node_t **p)
+
+node_t *newnode_t(const char *ID)
 {
-    rr_rotation(&((*p)->left));
-    ll_rotation(p);
+    node_t *node = (node_t *)malloc(sizeof(node_t));
+    if (!node)
+        ERR("malloc");
+    strncpy(node->ID, ID, MAX_ARG_LENGTH);
+    node->parts_send = 1;
+    node->left = NULL;
+    node->right = NULL;
+    node->height = 1;
+    return (node);
 }
 
-void rl_rotation(node_t **p)
+
+node_t *right_rotate(node_t *y)
 {
-    ll_rotation(&((*p)->right));
-    rr_rotation(p);
+    node_t *x = y->left;
+    node_t *T2 = x->right;
+
+    x->right = y;
+    y->left = T2;
+
+    y->height = max(height(y->left), height(y->right)) + 1;
+    x->height = max(height(x->left), height(x->right)) + 1;
+
+    return x;
 }
 
-void insert(stud_t *stud, node_t **root, int *h)
+
+node_t *left_rotate(node_t *x)
 {
-    node_t *ptr;
-    if (!(*root))
+    node_t *y = x->right;
+    node_t *T2 = y->left;
+
+    y->left = x;
+    x->right = T2;
+
+    x->height = max(height(x->left), height(x->right)) + 1;
+    y->height = max(height(y->left), height(y->right)) + 1;
+
+    return y;
+}
+
+
+int get_balance(node_t *N)
+{
+    if (N == NULL)
+        return 0;
+    return height(N->left) - height(N->right);
+}
+
+
+node_t *insert_node(node_t *node, const char *ID)
+{
+    if (node == NULL)
+        return (newnode_t(ID));
+
+    if (strcmp(ID, node->ID) == 1)
+        node->left = insert_node(node->left, ID);
+    else if (strcmp(ID, node->ID) == -1)
+        node->right = insert_node(node->right, ID);
+    else
+        return node;
+
+    node->height = 1 + max(height(node->left), height(node->right));
+
+    int balance = get_balance(node);
+    if (balance > 1 && strcmp(ID, node->left->ID) == 1)
+        return right_rotate(node);
+
+    if (balance < -1 && strcmp(ID, node->right->ID) == -1)
+        return left_rotate(node);
+
+    if (balance > 1 && strcmp(ID, node->left->ID) == -1)
     {
-        (*root) = (node_t *)malloc(sizeof(node_t));
-        if (!root)
-            ERR("malloc");
-        (*root)->stud = stud;
-        (*root)->left = (*root)->right = NULL;
-        (*root)->bl = 0;
-        *h = 1;
-        return;
+        node->left = left_rotate(node->left);
+        return right_rotate(node);
     }
-    if (CMP(stud, (*root)->stud) == 1)
+
+    if (balance < -1 && strcmp(ID, node->right->ID) == 1)
     {
-        insert(stud, &((*root)->left), h);
-        if (*h)
-        {
-            switch ((*root)->bl)
-            {
-            case 1:
-                ptr = (*root)->left;
-                if (ptr->bl == 1 || ptr->bl == 0)
-                    ll_rotation(root);
-                else
-                    lr_rotation(root);
-                *h = 0;
-                break;
-            case 0:
-                (*root)->bl = 1;
-                break;
-            case -1:
-                (*root)->bl = 0;
-                *h = 0;
-                break;
-            }
-        }
-        return;
+        node->right = right_rotate(node->right);
+        return left_rotate(node);
     }
-    if (CMP(stud, (*root)->stud) == -1)
+
+    return node;
+}
+
+node_t *minValuenode_t(node_t *node)
+{
+    node_t *current = node;
+
+    while (current->left != NULL)
+        current = current->left;
+
+    return current;
+}
+
+void print_node(node_t *node)
+{
+    if (node)
     {
-        insert(stud, &((*root)->right), h);
-        if (*h)
-        {
-            switch ((*root)->bl)
-            {
-            case 1:
-                (*root)->bl = 0;
-                *h = 0;
-                break;
-            case 0:
-                (*root)->bl = 1;
-                break;
-            case -1:
-                ptr = (*root)->right;
-                if (ptr->bl == 1 || ptr->bl == 0)
-                    rr_rotation(root);
-                else
-                    rl_rotation(root);
-                *h = 0;
-                break;
-            }
-        }
-        return;
+        print_node(node->left);
+        printf("%s, %d\n", node->ID, node->parts_send);
+        print_node(node->right);
     }
 }
 
-node_t *search(char *ID, node_t *root)
+void delete_node(node_t *node)
+{
+    if (node)
+    {
+        print_node(node->left);
+        print_node(node->right);
+        free(node);
+    }
+}
+
+node_t *search_node(node_t *root, char *ID)
 {
     node_t *p = root;
-    while (p && CMP_ID(ID, p->stud))
+    while (p && strcmp(ID, p->ID) != 0)
     {
-        if (CMP_ID(ID, p->stud) < 0)
+        if (strcmp(ID, p->ID) < 0)
             p = p->left;
         else
             p = p->right;
     }
     return p;
-}
-
-void print(node_t *root)
-{
-    if (root)
-    {
-        print(root->left);
-        printf("%s ", root->stud->ID);
-        print(root->right);
-    }
 }

@@ -20,27 +20,27 @@
 #include <errno.h>
 
 #include "regex_match.h"
-#include "avl_tree.h"
 
 #define SHORTOPTS "e:s:k:d:n:b:"
-
-// #define DEFAULTPATH "e:s:k:d::n::b::"
 #define DATE_REGEX "^[0-9]{2}.[0-9]{2}.[0-9]{4}_[0-9]{2}:[0-9]{2}$"
 
-#define MAX_ARG_LENGTH 100
-#define MSG_BUF_LENGTH 100
-#define DATE_LENGTH 16
-
-#define DEFAULT_PATH "."
-#define DEFAULT_CSV_FILENAME "results.csv"
-#define DEFAULT_LOG_FILENAME "errors.log"
-
-#define UNDERSCORE_DELIM "_"
-#define DOT_DELIM "."
-#define COLON_DELIM ":"
-
-
 #define CASE(N) case N: 
+
+typedef struct student 
+{
+    char ID[MAX_ARG_LENGTH];
+    int parts_send;
+    int minutes_late;
+    int solving_time[9];
+} student_t;
+
+typedef struct mistake 
+{
+    struct tm *date;
+    char filename[MAX_ARG_LENGTH];
+    int type;
+} mistake_t;
+
 
 typedef struct options 
 {
@@ -49,15 +49,22 @@ typedef struct options
     int c;
 
     int PARTS_COUNT;
-    struct tm *START_DATE;
-    struct tm *FINAL_DATE;
+    time_t START_DATE;
+    time_t FINAL_DATE;
+
+    char START_DATE_c[DATE_LENGTH];
+    char FINAL_DATE_c[DATE_LENGTH];
 
     char PATH[MAX_ARG_LENGTH + 1];
     char CSV_FILENAME[MAX_ARG_LENGTH + 1];
     char LOG_FILENAME[MAX_ARG_LENGTH + 1];
 
-    node_t *data_root;
-    pthread_mutex_t *mx_data_root;
+    student_t *data;
+    pthread_mutex_t *mx_data;
+
+    mistake_t *mistake_data;
+    int data_length;
+
 } options_t;
 
 void option_e(options_t *OPT);
@@ -75,6 +82,8 @@ int missing_option(char *pname, char option);
 
 void invalid_argument(char *pname, char option);
 
-void convert_date(options_t *OPT, struct tm **tm_date);
+// void convert_date(options_t *OPT, struct tm **tm_date);
+
+void convert_date(options_t *OPT, char *r_time_c, time_t *r_time);
 
 #endif

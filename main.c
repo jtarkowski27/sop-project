@@ -30,10 +30,16 @@ int main(int argc, char **argv)
     strncpy(OPT->LOG_FILENAME, DEFAULT_LOG_FILENAME, MAX_ARG_LENGTH + 1);
 
     chandle_getopt(OPT);
-    OPT->data_root = NULL;
-    OPT->mx_data_root = &mx_data_root;
-    if (pthread_create(&threads[0], NULL, file_analyzer, OPT)) ERR("pthread_create");
+    OPT->data = NULL;
+    OPT->mx_data = &mx_data_root;
 
+    if (pthread_create(&threads[0], NULL, file_analysis, OPT)) 
+        ERR("pthread_create");
+
+    if(pthread_join(threads[0], NULL)) 
+        ERR("Failed to join with a student thread!");
+
+    free(OPT->data);
     free(OPT);
     exit(EXIT_SUCCESS);
 }

@@ -28,32 +28,55 @@ void print_time(struct tm *tm_date)
     printf("%d\n", tm_date->tm_min);
 }
 
-void convert_date(options_t *OPT, struct tm **tm_date)
+// void convert_date(options_t *OPT, struct tm **tm_date)
+// {
+//     char date[DATE_LENGTH + 1];
+//     char *day, *hour;
+
+//     strncpy(date, optarg, DATE_LENGTH + 1);
+
+//     if (!match(date, DATE_REGEX))
+//         invalid_argument(OPT->argv[0], OPT->c);
+
+//     day = strtok(date, UNDERSCORE_DELIM);
+//     hour = strtok(NULL, UNDERSCORE_DELIM);
+
+//     time_t tmp = { 0 };
+//     time(&tmp);
+
+//     *tm_date = localtime(&tmp);
+
+//     if (!(*tm_date))
+//         ERR("malloc");
+
+//     (*tm_date)->tm_mday = strtol(strtok(day, DOT_DELIM), (char **)NULL, 0);
+//     (*tm_date)->tm_mon = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
+//     (*tm_date)->tm_year = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
+
+//     (*tm_date)->tm_hour = strtol(strtok(hour, COLON_DELIM), (char **)NULL, 0);
+//     (*tm_date)->tm_min = strtol(strtok(NULL, COLON_DELIM), (char **)NULL, 0);
+// }
+
+void convert_date(options_t *OPT, char *r_time_c, time_t *r_time)
 {
-    char date[DATE_LENGTH + 1];
-    char *day, *hour;
+    char date[MAX_ARG_LENGTH];
+    struct tm tm;
+    
+    // strncpy(r_time_c, optarg, DATE_LENGTH + 1);
 
-    strncpy(date, optarg, DATE_LENGTH + 1);
-
-    if (!match(date, DATE_REGEX))
+    if (!match(optarg, DATE_REGEX))
         invalid_argument(OPT->argv[0], OPT->c);
 
-    day = strtok(date, UNDERSCORE_DELIM);
-    hour = strtok(NULL, UNDERSCORE_DELIM);
+    strncpy(r_time_c, optarg, DATE_LENGTH + 1);
 
-    *tm_date = (struct tm *)malloc(sizeof(struct tm));
+	if (strptime(r_time_c, "%d.%m.%Y_%H:%M", &tm) == NULL)
+		ERR("strptime");
 
-    if (!(*tm_date))
-        ERR("malloc");
-
-    (*tm_date)->tm_mday = strtol(strtok(day, DOT_DELIM), (char **)NULL, 0);
-    (*tm_date)->tm_mon = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
-    (*tm_date)->tm_year = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
-
-    (*tm_date)->tm_hour = strtol(strtok(hour, COLON_DELIM), (char **)NULL, 0);
-    (*tm_date)->tm_min = strtol(strtok(NULL, COLON_DELIM), (char **)NULL, 0);
-
-    print_time(*tm_date);
+    
+    // printf("date: %ld\n", mktime(&tm));
+    
+	// *r_time = mktime(&tm);
+	*r_time = mktime(&tm);
 }
 
 void chandle_getopt(options_t *OPT)
@@ -101,8 +124,6 @@ void chandle_getopt(options_t *OPT)
     if (!(OPT->FINAL_DATE))
         err = missing_option(OPT->argv[0], 'k');
 
-    printf("PATH: %s\n", OPT->PATH);
-
     if (!err)
         usage(OPT->argv[0]);
 }
@@ -110,18 +131,22 @@ void chandle_getopt(options_t *OPT)
 void option_e(options_t *OPT)
 {
     OPT->PARTS_COUNT = strtol(optarg, NULL, 0);
+    
     if (OPT->PARTS_COUNT < 1 || OPT->PARTS_COUNT > 9)
         invalid_argument(OPT->argv[0], OPT->c);
 }
 
 void option_s(options_t *OPT)
 {
-    convert_date(OPT, &(OPT->START_DATE));
+    convert_date(OPT, OPT->START_DATE_c, &(OPT->START_DATE));
+    printf("date: %ld\n", OPT->START_DATE);
 }
 
 void option_k(options_t *OPT)
 {
-    convert_date(OPT, &(OPT->FINAL_DATE));
+    convert_date(OPT, OPT->FINAL_DATE_c, &(OPT->FINAL_DATE));
+    printf("date: %ld\n", OPT->FINAL_DATE);
+
 }
 
 void option_d(options_t *OPT)

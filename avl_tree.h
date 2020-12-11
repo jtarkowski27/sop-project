@@ -13,32 +13,32 @@
 
 typedef struct stud
 {
-    char ID[MAX_ID_LENGTH];
-    int parts_send;
-    int minutes_late;
-    int *solving_time;
+
 } stud_t;
 
 typedef struct node
 {
-    stud_t *stud;
-    int bl;
+    int height;
     struct node *left, *right;
+
+    char ID[MAX_ID_LENGTH];
+    int parts_send;
+    int minutes_late;
+    int *solving_time;
 } node_t;
 
 
-void rr_rotation(node_t **p);
+int height(node_t *N);
+int max(int a, int b);
 
-void ll_rotation(node_t **p);
-
-void lr_rotation(node_t **p);
-
-void rl_rotation(node_t **p);
-
-void insert(stud_t *stud, node_t **root, int *h);
-
-void print(node_t *root);
-
-node_t *search(char *ID, node_t *root);
+node_t *newnode_t(const char *ID);
+node_t *right_rotate(node_t *y);
+node_t *left_rotate(node_t *x);
+int get_balance(node_t *N);
+node_t *insert_node(node_t *node, const char *ID);
+node_t *minValuenode_t(node_t *node);
+void print_node(node_t *node);
+void delete_node(node_t *node);
+node_t *search_node(node_t *root, char *ID);
 
 #endif
