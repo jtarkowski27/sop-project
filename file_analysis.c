@@ -75,8 +75,22 @@ void correct_filename(options_t * OPT, struct dirent *ent, time_t *start, time_t
 
 void incorrect_filename(options_t * OPT, struct dirent *ent)
 {
-	// while (OPT->ent != NULL);
+
+	int signo;
 	OPT->ent = ent;
+	OPT->new_mistake = true;
+
+	while (1)
+	{
+		if(sigwait(OPT->masks[0], &signo)) 
+            ERR("sigwait failed.");
+
+        if (signo == SIGCONT)
+		{
+			printf("thread[0] got SIGCONT\n");
+			break;
+		}
+	}
 }
 
 void scan_dir(options_t *OPT, char *path)
@@ -113,7 +127,6 @@ void *file_analysis(void *void_args)
 	char path[MAX_ARG_LENGTH];
     options_t *OPT = void_args;
 
-    // pthread_mutex_lock(OPT->mx_ent);
     pthread_mutex_lock(OPT->mx_data);
 
 	init_data(OPT);
@@ -122,19 +135,9 @@ void *file_analysis(void *void_args)
 	if(chdir(path)) ERR("chdir");
 
 	scan_dir(OPT, path);
+	OPT->work_finished = true;
 
-	for (int j = 1; j <= OPT->data_length; j++)
-	{
-		printf("%s, \t%d, \t", OPT->data[j].ID, OPT->data[j].parts_send);
-		printf("%d, \t", OPT->data[j].minutes_late);
-		for (int k = 0; k < OPT->data[j].parts_send; k++)
-		{
-			printf("%d ", OPT->data[j].solving_time[k]);
-		}
-		printf("\n");
-	}
-	
-    // pthread_mutex_unlock(OPT->mx_ent);
+	pthread_kill(OPT->threads[1], SIGUSR1);
 	pthread_mutex_unlock(OPT->mx_data);
 
     return NULL;

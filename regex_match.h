@@ -1,12 +1,23 @@
-#include <regex.h>
-#include <stdlib.h>
-#include <unistd.h>
+#define _XOPEN_SOURCE  
+#define __USE_XOPEN_EXTENDED 
+#define _GNU_SOURCE
+
 #include <getopt.h>
+#include <stddef.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <regex.h>
+#include <stdbool.h>
 #include <string.h>
+#include <time.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <dirent.h> 
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include <errno.h>
+#include <regex.h>
 
 #ifndef REGEX_MATCH_H
 #define REGEX_MATCH_H

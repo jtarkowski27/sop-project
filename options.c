@@ -68,6 +68,8 @@ void convert_date(options_t *OPT, char *r_time_c, time_t *r_time)
 	if (strptime(r_time_c, "%d.%m.%Y_%H:%M", &tm) == NULL) ERR("strptime");
 
 	*r_time = mktime(&tm);
+    
+    printf("time: %ld\n", *r_time);
 }
 
 void chandle_getopt(options_t *OPT)
@@ -122,6 +124,7 @@ void chandle_getopt(options_t *OPT)
 void option_e(options_t *OPT)
 {
     OPT->PARTS_COUNT = strtol(optarg, NULL, 0);
+    if (errno != 0) ERR("strtol");
     
     if (OPT->PARTS_COUNT < 1 || OPT->PARTS_COUNT > 9)
         invalid_argument(OPT->argv[0], OPT->c);

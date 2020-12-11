@@ -6,19 +6,6 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-#include <getopt.h>
-#include <regex.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <pthread.h>
-#include <errno.h>
-
 #include "regex_match.h"
 
 #define SHORTOPTS "e:s:k:d:n:b:"
@@ -67,6 +54,9 @@ typedef struct options
     int data_length;
 
     pthread_t threads[3];
+    sigset_t *masks[3];
+    bool new_mistake;
+    bool work_finished;
 } options_t;
 
 void option_e(options_t *OPT);

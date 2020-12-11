@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <dirent.h>       
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <errno.h>
 
