@@ -7,8 +7,6 @@ void *mistake_handler(void *void_args)
 
     time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
-    
-    int signo = 0;
 
     if((f = fopen(OPT->LOG_FILENAME, "w+")) == NULL) ERR("fopen");
 

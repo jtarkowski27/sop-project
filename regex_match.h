@@ -1,3 +1,6 @@
+#ifndef REGEX_MATCH_H
+#define REGEX_MATCH_H
+
 #define _XOPEN_SOURCE  
 #define __USE_XOPEN_EXTENDED 
 #define _GNU_SOURCE
@@ -18,9 +21,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <regex.h>
-
-#ifndef REGEX_MATCH_H
-#define REGEX_MATCH_H
 
 #define DEFAULT_PATH "."
 #define DEFAULT_CSV_FILENAME "results.csv"

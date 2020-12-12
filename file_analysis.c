@@ -1,12 +1,5 @@
 #include "file_analysis.h"
 
-
-int walk(const char *name, const struct stat *s, int type, struct FTW *f)
-{
-    printf("lol");
-    return 0;
-}
-
 void pathcat(char *path, options_t *OPT)
 {
 	if (getcwd(path, MAX_ARG_LENGTH) == NULL) 
@@ -34,17 +27,17 @@ void add_part(student_t *stud, int *part, time_t *mtime, time_t *last_t, time_t 
 void init_data(options_t *OPT)
 {
 	OPT->data_length = 0;
-	OPT->data = (student_t *)malloc(sizeof(student_t) * DEFAULT_STUDENT_COUNT);
+	OPT->data = (student_t *)calloc(DEFAULT_STUDENT_COUNT, sizeof(student_t));
 	if (!(OPT->data)) ERR("malloc");
 }
 
 void correct_filename(options_t * OPT, struct dirent *ent, time_t *start, time_t *last, time_t *final)
 {
-	static char ID_buffer[MAX_ARG_LENGTH];
+	static char ID_buffer[MAX_ARG_LENGTH] = {0};
 	static struct stat filestat;
 	static int i = 0;
 	static int reserved_size = DEFAULT_STUDENT_COUNT;
-	static char *ID;
+	static char *ID = NULL;
 	static int last_part = 0;
 
 	if (lstat(ent->d_name, &filestat))
@@ -95,7 +88,7 @@ void incorrect_filename(options_t * OPT, struct dirent *ent)
 
 void scan_dir(options_t *OPT, char *path)
 {
-	char regex[MAX_ARG_LENGTH];
+	char regex[MAX_ARG_LENGTH] = "";
 	DIR *dir;
 	struct dirent *ent;
 
@@ -124,7 +117,7 @@ void scan_dir(options_t *OPT, char *path)
 
 void *file_analysis(void *void_args)
 {
-	char path[MAX_ARG_LENGTH];
+	char path[MAX_ARG_LENGTH] = "";
     options_t *OPT = void_args;
 
     pthread_mutex_lock(OPT->mx_data);

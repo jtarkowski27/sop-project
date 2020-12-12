@@ -28,39 +28,10 @@ void print_time(struct tm *tm_date)
     printf("%d\n", tm_date->tm_min);
 }
 
-// void convert_date(options_t *OPT, struct tm **tm_date)
-// {
-//     char date[DATE_LENGTH + 1];
-//     char *day, *hour;
-
-//     strncpy(date, optarg, DATE_LENGTH + 1);
-
-//     if (!match(date, DATE_REGEX))
-//         invalid_argument(OPT->argv[0], OPT->c);
-
-//     day = strtok(date, UNDERSCORE_DELIM);
-//     hour = strtok(NULL, UNDERSCORE_DELIM);
-
-//     time_t tmp = { 0 };
-//     time(&tmp);
-
-//     *tm_date = localtime(&tmp);
-
-//     if (!(*tm_date))
-//         ERR("malloc");
-
-//     (*tm_date)->tm_mday = strtol(strtok(day, DOT_DELIM), (char **)NULL, 0);
-//     (*tm_date)->tm_mon = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
-//     (*tm_date)->tm_year = strtol(strtok(NULL, DOT_DELIM), (char **)NULL, 0);
-
-//     (*tm_date)->tm_hour = strtol(strtok(hour, COLON_DELIM), (char **)NULL, 0);
-//     (*tm_date)->tm_min = strtol(strtok(NULL, COLON_DELIM), (char **)NULL, 0);
-// }
-
 void convert_date(options_t *OPT, char *r_time_c, time_t *r_time)
 {
     char date[MAX_ARG_LENGTH];
-    struct tm tm;
+    struct tm tm = {0};
     strncpy(date, optarg, MAX_ARG_LENGTH);
     strncpy(r_time_c, optarg, MAX_ARG_LENGTH);
 

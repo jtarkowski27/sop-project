@@ -21,8 +21,7 @@ int main(int argc, char **argv)
     options_t *OPT = (options_t *)malloc(sizeof(options_t));
     pthread_mutex_t mx_data = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_t mx_ent = PTHREAD_MUTEX_INITIALIZER;
-    sigset_t *old_masks[3];
-    int signals[] = {SIGUSR1, SIGCONT, SIGUSR2};
+    sigset_t *old_masks[2] = {0};
 
     errno = 0;
 
@@ -30,6 +29,7 @@ int main(int argc, char **argv)
     OPT->argv = argv;
     
     OPT->PARTS_COUNT = 0;
+
     
     if (getcwd(OPT->PATH, MAX_ARG_LENGTH) == NULL) 
         ERR("getcwd");
@@ -46,6 +46,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < 2; i++)
     {
         sigset_t old_mask, new_mask;
+        sigemptyset(&new_mask);
         OPT->masks[i] = &new_mask;
         old_masks[i] = &old_mask;
     } 
@@ -73,7 +74,7 @@ int main(int argc, char **argv)
     if(pthread_join(OPT->threads[2], NULL)) 
         ERR("Failed to join with a student thread!");
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
     {
         if (pthread_sigmask(SIG_UNBLOCK, OPT->masks[i], old_masks[i])) 
             ERR("SIG_BLOCK error");
