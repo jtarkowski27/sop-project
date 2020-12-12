@@ -1,6 +1,6 @@
 
 CC = gcc
-CFLAGS= -g -Werror -std=gnu99 -Wall 
+CFLAGS= -g -std=gnu99 -Wall 
 LDLIBS = -lpthread -lm
 DEPS = options.h
 OBJ = main.o options.o file_analysis.o regex_match.o result_handler.o mistake_handler.o

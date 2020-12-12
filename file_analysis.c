@@ -1,5 +1,29 @@
 #include "file_analysis.h"
 
+void append_node(student_t *root, student_t *new_node)
+{
+	root->next = new_node;
+	new_node->next = NULL;
+}
+
+void print_list(student_t *root)
+{
+	while (root != NULL)
+	{
+		printf(" %s ", root->ID);
+		root = root->next;
+	}
+}
+
+void free_list(student_t *root)
+{
+	if (root != NULL)
+	{
+		free_list(root->next);
+		free(root);
+	}
+}
+
 void pathcat(char *path, options_t *OPT)
 {
 	if (getcwd(path, MAX_ARG_LENGTH) == NULL) 
@@ -9,10 +33,10 @@ void pathcat(char *path, options_t *OPT)
 	strncat(path, OPT->PATH, MAX_ARG_LENGTH);
 }
 
-void reallocate_data(student_t *data, int new_length)
+void reallocate_data(options_t *OPT, int new_length)
 {
-	data = (student_t *)realloc(data, sizeof(student_t) * new_length);
-	if (data == NULL)
+	OPT->data = (student_t *)realloc(OPT->data, sizeof(student_t) * new_length);
+	if (OPT->data == NULL)
 		ERR("realloc");
 }
 
@@ -26,65 +50,90 @@ void add_part(student_t *stud, int *part, time_t *mtime, time_t *last_t, time_t 
 
 void init_data(options_t *OPT)
 {
-	OPT->data_length = 0;
-	OPT->data = (student_t *)calloc(DEFAULT_STUDENT_COUNT, sizeof(student_t));
-	if (!(OPT->data)) ERR("malloc");
+	OPT->data = (student_t *)calloc(1, sizeof(student_t));
+	if (!(OPT->data)) ERR("calloc");
+	strncpy(OPT->data->ID, "", sizeof(OPT->data->ID));
 }
 
-void correct_filename(options_t * OPT, struct dirent *ent, time_t *start, time_t *last, time_t *final)
+void incorrect_file(options_t * OPT, struct dirent *ent)
 {
-	static char ID_buffer[MAX_ARG_LENGTH] = {0};
-	static struct stat filestat;
-	static int i = 0;
-	static int reserved_size = DEFAULT_STUDENT_COUNT;
-	static char *ID = NULL;
-	static int last_part = 0;
-
-	if (lstat(ent->d_name, &filestat))
-		ERR("lstat");
-
-	time_t mtime = filestat.st_mtime;
-
-	strncpy(ID_buffer, ent->d_name, sizeof(ID_buffer));
-	if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
-		ERR("strtok");
-
-	if (strncmp(ID, OPT->data[i].ID, MAX_ARG_LENGTH) == 0)
-		add_part(&(OPT->data[i]), &last_part, &mtime, last, final);
-	else
-	{
-		OPT->data_length++;
-		last_part = 0;
-		*last = *start;
-
-		if (++i >= reserved_size)
-			reallocate_data(OPT->data, (reserved_size *= 2));
-
-		strncpy(OPT->data[i].ID, ID, sizeof(OPT->data[i].ID));
-
-		add_part(&(OPT->data[i]), &last_part, &mtime, last, final);
-	}
-}
-
-void incorrect_filename(options_t * OPT, struct dirent *ent)
-{
-
 	int signo;
 	OPT->ent = ent;
-	OPT->new_mistake = true;
+	// OPT->new_mistake = true;	// Informacja dla wątku [2] o nowym błędzie
 
-	while (1)
-	{
-		if(sigwait(OPT->masks[0], &signo)) 
-            ERR("sigwait failed.");
+	// Wątek [0] oczekuje na wiadomość zwrotną od wątku [2]
+	// while (1)
+	// {
+	// 	if(sigwait(OPT->masks[0], &signo)) 
+    //         ERR("sigwait failed.");
 
-        if (signo == SIGCONT)
-		{
-			printf("thread[0] got SIGCONT\n");
-			break;
-		}
-	}
+    //     if (signo == SIGCONT)
+	// 	{
+	// 		printf("thread[0] got SIGCONT\n");
+	// 		break;
+	// 	}
+	// }
 }
+
+// void scan_dir(options_t *OPT, char *path)
+// {
+// 	char regex[MAX_ARG_LENGTH] = "";
+// 	DIR *dir;
+// 	struct dirent *ent;
+//
+// 	time_t start_t;
+// 	time_t last_t = start_t = OPT->START_DATE;
+// 	time_t final_t = OPT->FINAL_DATE;
+//
+// 	char ID_buffer[MAX_ARG_LENGTH] = {0};
+// 	struct stat filestat;
+// 	char *ID = NULL;
+// 	int last_part = 0;
+// 	student_t *curr = OPT->data;
+//
+// 	strncpy(regex, INCORRECT_FILENAME_REGEX, sizeof(regex));
+// 	regex[23] = '0' + OPT->PARTS_COUNT;
+//
+// 	if (!(dir = opendir(path))) ERR("opendir");
+//
+// 	errno = 0;
+// 	while ((ent = readdir(dir)) != NULL && errno == 0)
+// 	{
+// 		if (match(ent->d_name, regex) == 1)
+// 		{
+// 			if (lstat(ent->d_name, &filestat))
+// 				ERR("lstat");
+//
+// 			time_t mtime = filestat.st_mtime;
+//
+// 			strncpy(ID_buffer, ent->d_name, sizeof(ID_buffer));
+// 			if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
+// 				ERR("strtok");
+//
+// 			if (strncmp(ID, curr->ID, MAX_ARG_LENGTH) == 0)
+// 				add_part(curr, &last_part, &mtime, &last_t, &final_t);
+// 			else
+// 			{
+// 				printf("lol");
+// 				student_t *new_node = (student_t *)calloc(1, sizeof(student_t));
+// 				append_node(curr, new_node);
+// 				curr = curr->next;
+// 				strncpy(curr->ID, ID, sizeof(curr->ID));
+// 				curr->parts_send = 1;
+// 				add_part(curr, &last_part, &mtime, &last_t, &final_t);
+// 				print_list(OPT->data);
+// 			}
+// 		}
+// 		else
+// 		{
+// 			incorrect_file(OPT, ent);
+// 		}
+// 	}
+//
+// 	if (errno != 0) ERR("readdir");
+// 	if (closedir(dir)) ERR("closedir");
+// }
+
 
 void scan_dir(options_t *OPT, char *path)
 {
@@ -92,9 +141,15 @@ void scan_dir(options_t *OPT, char *path)
 	DIR *dir;
 	struct dirent *ent;
 
-	time_t start_time;
-	time_t last_time = start_time = OPT->START_DATE;
-	time_t final_time = OPT->FINAL_DATE;
+	time_t start_t;
+	time_t last_t = start_t = OPT->START_DATE;
+	time_t final_t = OPT->FINAL_DATE;
+
+	char ID_buffer[MAX_ARG_LENGTH] = {0};
+	struct stat filestat;
+	char *ID = NULL;
+	int last_part = 0;
+	student_t *curr = OPT->data;
 
 	strncpy(regex, INCORRECT_FILENAME_REGEX, sizeof(regex));
 	regex[23] = '0' + OPT->PARTS_COUNT;
@@ -104,10 +159,41 @@ void scan_dir(options_t *OPT, char *path)
 	errno = 0;
 	while ((ent = readdir(dir)) != NULL && errno == 0)
 	{
+		printf("filename: %s\n", ent->d_name);
 		if (match(ent->d_name, regex) == 1)
-			correct_filename(OPT, ent, &start_time, &last_time, &final_time);
+		{
+			if (lstat(ent->d_name, &filestat))
+				ERR("lstat");
+
+			time_t mtime = filestat.st_mtime;
+
+			strncpy(ID_buffer, ent->d_name, sizeof(ID_buffer));
+			if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
+				ERR("strtok");
+
+			printf("ID: %s\n", ID);
+
+			if (strncmp(ID, curr->ID, MAX_ARG_LENGTH) == 0)
+				add_part(curr, &last_part, &mtime, &last_t, &final_t);
+			else
+			{
+				curr->next = (student_t *)calloc(1, sizeof(student_t));
+				if (curr->next == NULL) ERR("malloc");
+				curr = curr->next;
+				curr->next = NULL;
+				curr->parts_send = 0;
+				strncpy(curr->ID, ID, sizeof(curr->ID));
+				
+				printf("list: ");
+				print_list(OPT->data->next);
+				printf("\n");
+				add_part(curr, &last_part, &mtime, &last_t, &final_t);
+			}
+		}
 		else
-			incorrect_filename(OPT, ent);
+		{
+			incorrect_file(OPT, ent);
+		}
 	}
 
 	if (errno != 0) ERR("readdir");
@@ -122,7 +208,10 @@ void *file_analysis(void *void_args)
 
     pthread_mutex_lock(OPT->mx_data);
 
-	init_data(OPT);
+	// init_data(OPT);
+	OPT->data = (student_t *)calloc(1, sizeof(student_t));
+	if (!(OPT->data)) ERR("calloc");
+	OPT->data->next = NULL;
 	
 	pathcat(path, OPT);
 	if(chdir(path)) ERR("chdir");
@@ -131,6 +220,9 @@ void *file_analysis(void *void_args)
 	OPT->work_finished = true;
 
 	pthread_kill(OPT->threads[1], SIGUSR1);
+
+	printf("done\n");
+
 	pthread_mutex_unlock(OPT->mx_data);
 
     return NULL;

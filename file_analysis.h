@@ -7,7 +7,7 @@
 
 #define MAXLINE 4096
 
-#define DEFAULT_STUDENT_COUNT 100
+#define DEFAULT_STUDENT_COUNT 10
 
 void *file_analysis(void *void_args);
 

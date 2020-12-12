@@ -14,6 +14,7 @@ typedef struct student
     int parts_send;
     int minutes_late;
     int solving_time[9];
+    struct student *next;
 } student_t;
 
 typedef struct mistake 
