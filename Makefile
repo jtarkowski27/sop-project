@@ -1,16 +1,10 @@
-
 CC = gcc
 CFLAGS= -g -std=gnu99 -Wall 
 LDLIBS = -lpthread -lm
-DEPS = options.h
-OBJ = main.o options.o file_analysis.o regex_match.o result_handler.o mistake_handler.o
 
-%.o: %.c $(DEPS)
-	$(CC) $(CFLAGS) -c -o $@ $< $(LDLIBS)
-
-main: $(OBJ)
-	gcc $(CFLAGS) -o $@ $^ $(LDLIBS)
+all: 
+	$(CC) $(CFLAGS) -o prog prog.c $(LDLIBS)
 
 clean:
-	rm main
-	rm *.o
+	rm prog
+	# rm *.o
