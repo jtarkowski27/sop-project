@@ -1,3 +1,5 @@
 *.o
 main
+prog
 /test
+!*.tar.bz2

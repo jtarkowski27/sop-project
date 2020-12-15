@@ -1,7 +1,7 @@
-#define _XOPEN_SOURCE  
 #define __USE_XOPEN_EXTENDED 
-#define _GNU_SOURCE
-
+#define _GNU_SOURCE 500
+#define _XOPEN_SOURCE 500
+#include <ftw.h>
 #include <getopt.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <regex.h>
+#include <stdint.h>
 
 #define ERR(source) (perror(source),\
                      fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
@@ -45,6 +46,10 @@
 #define MAX_PARTS_LENGTH 9
 #define THREADS_COUNT 3
 
+#define PART_INDEX_IN_STRING 4
+
+#define MAXFD 20
+
 
 /* MATCHING REGEX */
 
@@ -62,6 +67,7 @@ typedef struct student
     int parts_send;
     int minutes_late;
     int solving_time[MAX_PARTS_LENGTH];
+    time_t timestamps[MAX_PARTS_LENGTH + 1];
     struct student *next;
 } student_t;
 
@@ -89,6 +95,8 @@ typedef struct options
     char CSV_FILENAME[MAX_ARG_LENGTH + 1];
     char LOG_FILENAME[MAX_ARG_LENGTH + 1];
 
+    // pthread_mutex_t *mx_path;
+
     student_t *data;
     struct dirent *ent;
 
@@ -97,6 +105,8 @@ typedef struct options
 
     bool new_mistake;
     bool work_finished;
+
+    char *wrong_filename;
 } options_t;
 
 void chandle_getopt(options_t *OPT);
@@ -108,22 +118,23 @@ void convert_date(options_t *OPT, char *r_time_c, time_t *r_time);
 #define MAXLINE 4096
 #define DEFAULT_STUDENT_COUNT 10
 
-static options_t *OPT_g;
+static options_t *OPT_global;
 
-void *file_analysis(void *void_args);
+void *file_scanner(void *void_args);
 void init_data(options_t *OPT);
 void pathcat(char *path, options_t *OPT);
 void scan_dir(options_t *OPT, char *path);
-void add_part(student_t *stud, int *part, time_t *file_t, time_t *last_t, time_t *final_t);
+void add_part(student_t *stud, time_t *file_t, time_t *last_t, time_t *final_t);
 
-void append_student(student_t **stud);
-void incorrect_file(options_t * OPT, struct dirent *ent);
+void append_student(student_t **stud, time_t start_t);
+void update_student(student_t *stud, time_t part_t, time_t final_t, int part);
+void incorrect_file(options_t * OPT);
 void free_list(student_t *root);
 
 
 /* RESULT HANDLING */
 
-void *result_handler(void *void_args);
+void *result_writer(void *void_args);
 
 /* MISTAKES HANDLING */
 
@@ -138,8 +149,10 @@ int main(int argc, char **argv)
 {
     int i;
     options_t *OPT = (options_t *)malloc(sizeof(options_t));
+    char path[MAX_ARG_LENGTH * 2] = "";
+	char cwd[MAX_ARG_LENGTH] = "";
     
-    void *(*start_routines[THREADS_COUNT])(void *) = {file_analysis, result_handler, mistake_writer};
+    void *(*start_routines[THREADS_COUNT])(void *) = {file_scanner, result_writer, mistake_writer};
 
     sigset_t new_mask, old_mask;
     sigemptyset(&new_mask);
@@ -161,7 +174,19 @@ int main(int argc, char **argv)
     strncpy(OPT->CSV_FILENAME, DEFAULT_CSV_FILENAME, sizeof(OPT->CSV_FILENAME));
     strncpy(OPT->LOG_FILENAME, DEFAULT_LOG_FILENAME, sizeof(OPT->LOG_FILENAME));
 
+
+    OPT_global = OPT;
+
     chandle_getopt(OPT);
+    
+    
+    if (getcwd(cwd, MAX_ARG_LENGTH) == NULL) 
+        ERR("getcwd");
+    strncpy(path, cwd, MAX_ARG_LENGTH * 2);
+	init_data(OPT);
+	pathcat(path, OPT);
+	if(chdir(path)) ERR("chdir");
+
     
     for (i = 0; i < THREADS_COUNT; i++)
     {
@@ -174,6 +199,8 @@ int main(int argc, char **argv)
         if(pthread_join(OPT->threads[i], NULL)) 
             ERR("Failed to join with a thread!");
     }
+    
+	if(chdir(cwd)) ERR("chdir");
 
     if (pthread_sigmask(SIG_UNBLOCK, &new_mask, &old_mask)) 
         ERR("SIG_BLOCK error");
@@ -293,26 +320,98 @@ void chandle_getopt(options_t *OPT)
 
 /* FILE ANALYSIS */
 
-void *file_analysis(void *void_args)
+student_t * search(student_t *head, char *ID, student_t **prev)
+{
+    student_t *curr;
+    int c;
+	curr = head->next;
+    *prev = head;
+
+	while (curr != NULL && (c = strncmp(ID, curr->ID, MAX_ARG_LENGTH)) > 0)
+	{    
+        // printf("strncmp(%s,%s)\n", ID, curr->ID);
+		*prev = curr;
+		curr = curr->next;
+	}
+	return c == 0 ? curr : NULL;
+}
+
+void print_reverse(student_t* head)
+{
+    if (head == NULL)
+       return;
+    printf("%s->", head->ID);
+    print_reverse(head->next);
+}
+
+int walk(const char *name, const struct stat *filestat, int type, struct FTW *f)
+{
+    if (type != FTW_F)
+        return 0;
+        
+    options_t *OPT = OPT_global;
+
+	time_t start_t = OPT->START_DATE;
+	time_t final_t = OPT->FINAL_DATE;
+	time_t file_t;
+
+    int i = 0;
+
+	// Zmienne związane z nazwami plików
+	static char ID_buffer[MAX_ARG_LENGTH] = "";
+	static char *ID = NULL;
+    static char *part;
+	static char regex[MAX_ARG_LENGTH] = "";
+
+	// Zmienne związane z danymi studentów
+	student_t *stud = OPT->data;
+	student_t *prev;
+
+    char *filename = (char *)name + f->base;
+
+	strncpy(regex, INCORRECT_FILENAME_REGEX, sizeof(regex));
+	regex[23] = '0' + OPT->PARTS_COUNT;
+
+
+	errno = 0;
+    if (match(filename, regex) == 1)
+    {
+        // printf("%-5s %s\n", (type == FTW_F) ? "f" : "other", filename);
+        file_t = filestat->st_mtime;
+
+        strncpy(ID_buffer, filename, sizeof(ID_buffer));
+        if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
+            ERR("strtok");
+
+        if ((part = strtok(NULL, DOT_DELIM)) == NULL)
+            ERR("strtok");
+            
+        i = part[PART_INDEX_IN_STRING] - '0';
+    
+        if (NULL == (stud = search(OPT->data, ID, &prev)))
+        {
+            append_student(&prev, start_t);
+            stud = prev;
+            strncpy(stud->ID, ID, sizeof(stud->ID));
+        }
+
+        update_student(stud, file_t, final_t, i);
+    }
+    else
+    {
+        OPT->wrong_filename = filename;
+        incorrect_file(OPT);
+    }
+
+    return 0;
+}
+
+void *file_scanner(void *void_args)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-	char cwd[MAX_ARG_LENGTH] = "";
-	char path[MAX_ARG_LENGTH * 2] = "";
     options_t *OPT = void_args;
-    
-    if (getcwd(cwd, MAX_ARG_LENGTH) == NULL) 
-        ERR("getcwd");
 
-    strncpy(path, cwd, MAX_ARG_LENGTH * 2);
-    // printf("cwd: %s\n", cwd);
-	init_data(OPT);
-	pathcat(path, OPT);
-    // printf("path: %s\n", path);
-	if(chdir(path)) ERR("chdir");
-
-	scan_dir(OPT, path);
-    
-	if(chdir(cwd)) ERR("chdir");
+    if(nftw(".", walk, MAXFD, FTW_PHYS) != 0) printf("%s: brak dostępu\n", OPT->PATH);
 
 	OPT->work_finished = true;
 	pthread_kill(OPT->threads[1], SIGUSR1);
@@ -333,93 +432,28 @@ void pathcat(char *path, options_t *OPT)
 	strncat(path, OPT->PATH, MAX_ARG_LENGTH * 2);
 }
 
-void scan_dir(options_t *OPT, char *path)
+void append_student(student_t **stud, time_t start_t)
 {
-	// Zmienne podrzebne 
-	DIR *dir;
-	struct dirent *ent;
-	struct stat filestat;
-
-	// Zmienne związane z czasem
-	time_t start_t;
-	time_t last_t = start_t = OPT->START_DATE;
-	time_t final_t = OPT->FINAL_DATE;
-	time_t file_t;
-
-	// Zmienne związane z nazwami plików
-	char ID_buffer[MAX_ARG_LENGTH] = {0};
-	char *ID = NULL;
-	char regex[MAX_ARG_LENGTH] = "";
-
-	// Zmienne związane z danyi studentów
-	int part_n = 0;
-	student_t *stud = OPT->data;
-
-	strncpy(regex, INCORRECT_FILENAME_REGEX, sizeof(regex));
-	regex[23] = '0' + OPT->PARTS_COUNT;
-	
-	if (!(dir = opendir(path))) ERR("opendir");
-
-	errno = 0;
-	while ((ent = readdir(dir)) != NULL && errno == 0)
-	{
-		if (match(ent->d_name, regex) == 1)
-		{
-            
-            // printf("filename: %s\n", ent->d_name);
-			if (lstat(ent->d_name, &filestat))
-				ERR("lstat");
-
-			file_t = filestat.st_mtime;
-
-			strncpy(ID_buffer, ent->d_name, sizeof(ID_buffer));
-			if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
-				ERR("strtok");
-
-			if (strncmp(ID, stud->ID, MAX_ARG_LENGTH) == 0)
-				add_part(stud, &part_n, &file_t, &last_t, &final_t);
-			else
-			{
-				last_t = start_t;
-				part_n = 0;
-				append_student(&stud);
-				strncpy(stud->ID, ID, sizeof(stud->ID));
-				add_part(stud, &part_n, &file_t, &last_t, &final_t);
-			}
-		}
-		else
-		{
-            // printf("filename: %s\n", ent->d_name);
-			incorrect_file(OPT, ent);
-		}
-	}
-
-	if (errno != 0) ERR("readdir");
-	if (closedir(dir)) ERR("closedir");
-}
-
-void add_part(student_t *stud, int *part, time_t *file_t, time_t *last_t, time_t *final_t)
-{
-	stud->parts_send++;
-	stud->solving_time[(*part)++] = (*file_t - *last_t) / 60;
-	stud->minutes_late = *final_t > *file_t ? 0 : (*file_t - *final_t) / 60;
-	*last_t = *file_t;
-}
-
-void append_student(student_t **stud)
-{
+    student_t *temp = (*stud)->next;
 	(*stud)->next = (student_t *)calloc(1, sizeof(student_t));
 	if ((*stud)->next == NULL)
 		ERR("malloc");
 	(*stud) = (*stud)->next;
-	(*stud)->next = NULL;
-	(*stud)->parts_send = 0;
+	(*stud)->next = temp;
+	(*stud)->parts_send = 1;
+	(*stud)->timestamps[0] = start_t;
 }
 
-void incorrect_file(options_t * OPT, struct dirent *ent)
+void update_student(student_t *stud, time_t part_t, time_t final_t, int part)
 {
-	OPT->ent = ent;
-    if (match(OPT->ent->d_name, CORRECT_EXTENSION_REGEX) == 1)
+	stud->timestamps[part] = part_t;
+	stud->parts_send++;
+	stud->minutes_late = final_t > part_t ? 0 : (part_t - final_t) / 60;
+}
+
+void incorrect_file(options_t * OPT)
+{
+    if (match(OPT->wrong_filename, CORRECT_EXTENSION_REGEX) == 1)
     {
         OPT->new_mistake = true;	// Informacja dla wątku [2] o nowym zauważonym błędzie
 
@@ -450,7 +484,7 @@ void csv_cleanup_handler(void *void_args)
     close(*f);
 }
 
-void *result_handler(void *void_args)
+void *result_writer(void *void_args)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     options_t *OPT = void_args;
@@ -458,6 +492,7 @@ void *result_handler(void *void_args)
     int signo;
     student_t *stud;
     char str_buffer[MAX_ARG_LENGTH * 2] = "";
+    time_t curr;
 
     if((f = open(OPT->CSV_FILENAME, O_CREAT|O_RDWR|O_TRUNC, 0644)) == -1) 
         ERR("open");
@@ -471,16 +506,19 @@ void *result_handler(void *void_args)
         {
             stud = OPT->data->next;
             printf("thread[1] got a signal\n");
+
             while (stud != NULL)
             {
                 write(f, stud->ID, strlen(stud->ID)); 
-                sprintf(str_buffer, ", %d, %d", stud->parts_send, stud->minutes_late);
+                sprintf(str_buffer, ", %d, %d", stud->parts_send - 1, stud->minutes_late);
                 write(f, str_buffer, strlen(str_buffer));
-                
-                for (int k = 0; k < stud->parts_send; k++)
+
+                curr = OPT->START_DATE;
+                for (int k = 1; k < stud->parts_send; k++)
                 {
-                    sprintf(str_buffer, ", %d", stud->solving_time[k]);
+                    sprintf(str_buffer, ", %ld", (stud->timestamps[k] - curr) / 60);
                     write(f, str_buffer, strlen(str_buffer));
+                    curr = stud->timestamps[k];
                 }
                 write(f, "\n", 1);
                 stud = stud->next;
@@ -512,13 +550,14 @@ void *mistake_writer(void *void_args)
     time_t t = time(NULL);
 	struct tm *curr_t;
     char time_buffer[DATE_LENGTH + 1];
+    
 
     if((f = open(OPT->LOG_FILENAME, O_CREAT|O_RDWR|O_TRUNC, 0644)) == -1) 
         ERR("open");
 
+    // pthread_cleanup_push(log_cleanup_handler, &f);
     while (1)
     {
-        pthread_cleanup_push(log_cleanup_handler, &f);
         if (OPT->new_mistake == true)
         {
             curr_t = localtime(&t);
@@ -527,10 +566,10 @@ void *mistake_writer(void *void_args)
             write(f, "[", 1); 
             write(f, time_buffer, strlen(time_buffer)); 
             write(f, "] (", 3); 
-            write(f, OPT->ent->d_name, strlen(OPT->ent->d_name)); 
+            write(f, OPT->wrong_filename, strlen(OPT->wrong_filename)); 
             write(f, ") ", 2); 
 
-            if (match(OPT->ent->d_name, INCORRECT_PART_REGEX) == 1)
+            if (match(OPT->wrong_filename, INCORRECT_PART_REGEX) == 1)
                 write(f, INCORRECT_PART_MESSAGE, LOG_MESSAGE_LENGTH);
             else
                 write(f, INCORRECT_FILENAME_MESSAGE, LOG_MESSAGE_LENGTH);
@@ -542,10 +581,10 @@ void *mistake_writer(void *void_args)
         {
             break;
         }
-        pthread_cleanup_pop(1);
-        
     }
 
     if(-1 == close(f)) ERR("close");
+    
+    // pthread_cleanup_pop(1);
     return NULL;
 }
