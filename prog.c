@@ -1,4 +1,4 @@
-#define __USE_XOPEN_EXTENDED 
+#define __USE_XOPEN_EXTENDED 500
 #define _GNU_SOURCE 500
 #define _XOPEN_SOURCE 500
 #include <ftw.h>
@@ -28,12 +28,9 @@
 #define DEFAULT_CSV_FILENAME "results.csv"
 #define DEFAULT_LOG_FILENAME "errors.log"
 
-#define UNDERSCORE_DELIM "_"
-#define DOT_DELIM "."
-#define COLON_DELIM ":"
-
 #define MAX_ARG_LENGTH 100
 #define MSG_BUF_LENGTH 100
+#define MAX_BUF_LENGTH 100
 #define DATE_LENGTH 16
 
 #define SOLUTION_REGEX "^\w+(.etap\d)?.(tar.gz|tar.bz2|tar.xz|zip)$"
@@ -47,7 +44,6 @@
 #define THREADS_COUNT 3
 
 #define PART_INDEX_IN_STRING 4
-
 #define MAXFD 20
 
 
@@ -78,6 +74,43 @@ typedef struct mistake
     int type;
 } mistake_t;
 
+
+
+typedef struct name_regexes 
+{
+    regex_t *filename_re;
+    regex_t *solution_re;
+    regex_t *part_re;
+    regex_t *extension_re;
+    regex_t *date_re;
+} name_regexes_t;
+
+
+typedef struct file_scanner_args
+{
+    char *filename;
+    pthread_mutex_t *mx_mistake;
+    pthread_cond_t *cv_mistake;
+} file_scanner_args_t;
+
+
+typedef struct result_writer_args
+{
+    char filename[MAX_ARG_LENGTH];  
+    char csv_filename[MAX_ARG_LENGTH];
+    student_t *data;
+} result_writer_args_t;
+
+
+typedef struct mistake_writer_args
+{
+    char log_filename[MAX_ARG_LENGTH];
+    char **filename;
+    pthread_mutex_t *mx_mistake;
+    pthread_cond_t *cv_mistake;
+} mistake_writer_args_t;
+
+
 typedef struct options 
 {
     int argc; 
@@ -106,7 +139,19 @@ typedef struct options
     bool new_mistake;
     bool work_finished;
 
-    char *wrong_filename;
+    pthread_mutex_t *mx_mistake;
+    pthread_cond_t *cv_mistake;
+
+    pthread_mutex_t *mx_mistake_written;
+    pthread_cond_t *cv_mistake_written;
+
+    char *mistake_filename;
+    int mistake_type;
+
+    file_scanner_args_t *file_scanner_args;
+    result_writer_args_t *result_writer_args;
+    mistake_writer_args_t *mistake_writer_args;
+
 } options_t;
 
 void chandle_getopt(options_t *OPT);
@@ -128,7 +173,7 @@ void add_part(student_t *stud, time_t *file_t, time_t *last_t, time_t *final_t);
 
 void append_student(student_t **stud, time_t start_t);
 void update_student(student_t *stud, time_t part_t, time_t final_t, int part);
-void incorrect_file(options_t * OPT);
+void wakeup_mistake_writer(options_t * OPT);
 void free_list(student_t *root);
 
 
@@ -142,13 +187,23 @@ void *result_writer(void *void_args);
 #define INCORRECT_FILENAME_MESSAGE "Niepoprawna nazwa pliku\n"
 #define LOG_MESSAGE_LENGTH 24
 
+void write_mistake_to_file(int file, char *mistake_filename, int mistake_type);
 void *mistake_writer(void *void_args);
+
+void initialize_args(options_t *OPT)
+{
+    
+    OPT->file_scanner_args      = (file_scanner_args_t *)   calloc(1, sizeof(file_scanner_args_t));
+    OPT->result_writer_args     = (result_writer_args_t *)  calloc(1, sizeof(result_writer_args_t));
+    OPT->mistake_writer_args    = (mistake_writer_args_t *) calloc(1, sizeof(mistake_writer_args_t));
+}
 
 
 int main(int argc, char **argv)
 {
     int i;
     options_t *OPT = (options_t *)malloc(sizeof(options_t));
+    initialize_args(OPT);
     char path[MAX_ARG_LENGTH * 2] = "";
 	char cwd[MAX_ARG_LENGTH] = "";
     
@@ -168,15 +223,27 @@ int main(int argc, char **argv)
     OPT->ent = NULL;
     OPT->new_mistake = false;
     OPT->work_finished = false;
+
+    pthread_mutex_t mx_mistake = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cv_mistake = PTHREAD_COND_INITIALIZER;
+    pthread_mutex_t mx_mistake_written = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cv_mistake_written = PTHREAD_COND_INITIALIZER;
+
+
+    OPT->mx_mistake = &mx_mistake;
+    OPT->cv_mistake = &cv_mistake;
+    OPT->mx_mistake_written = &mx_mistake_written;
+    OPT->cv_mistake_written = &cv_mistake_written;
     
     if (getcwd(OPT->PATH, MAX_ARG_LENGTH) == NULL) 
         ERR("getcwd");
-    strncpy(OPT->CSV_FILENAME, DEFAULT_CSV_FILENAME, sizeof(OPT->CSV_FILENAME));
-    strncpy(OPT->LOG_FILENAME, DEFAULT_LOG_FILENAME, sizeof(OPT->LOG_FILENAME));
+
+
+    strncpy(OPT->CSV_FILENAME, DEFAULT_CSV_FILENAME, MAX_ARG_LENGTH);
+    strncpy(OPT->mistake_writer_args->log_filename, DEFAULT_LOG_FILENAME, MAX_ARG_LENGTH);
 
 
     OPT_global = OPT;
-
     chandle_getopt(OPT);
     
     
@@ -205,8 +272,13 @@ int main(int argc, char **argv)
     if (pthread_sigmask(SIG_UNBLOCK, &new_mask, &old_mask)) 
         ERR("SIG_BLOCK error");
 
+
+    free(OPT->file_scanner_args);
+    free(OPT->result_writer_args);
+    free(OPT->mistake_writer_args);
     free_list(OPT->data);
     free(OPT);
+
     exit(EXIT_SUCCESS);
 }
 
@@ -228,6 +300,12 @@ int match(const char *string, char *pattern)
         return 0;
 
     return 1;
+}
+
+int match_regex(const char *string, regex_t *re)
+{
+    int status = regexec(re, string, (size_t) 0, NULL, 0);
+    return status ? 0 : 1;
 }
 
 void usage(char *pname)
@@ -268,7 +346,7 @@ void chandle_getopt(options_t *OPT)
 {
     int err = 1;
 
-    while (-1 != (OPT->c = getopt(OPT->argc, OPT->argv, SHORTOPTS)))
+    while (-1 != (OPT->c = getopt(OPT->argc, OPT->argv, "e:s:k:d:n:b:")))
     {
         switch (OPT->c)
         {
@@ -297,7 +375,7 @@ void chandle_getopt(options_t *OPT)
             break;
 
         case 'b':
-            strncpy(OPT->LOG_FILENAME, optarg, sizeof(OPT->LOG_FILENAME));
+            strncpy(OPT->mistake_writer_args->log_filename, optarg, MAX_ARG_LENGTH);
             break;
 
         default:
@@ -328,8 +406,7 @@ student_t * search(student_t *head, char *ID, student_t **prev)
     *prev = head;
 
 	while (curr != NULL && (c = strncmp(ID, curr->ID, MAX_ARG_LENGTH)) > 0)
-	{    
-        // printf("strncmp(%s,%s)\n", ID, curr->ID);
+	{
 		*prev = curr;
 		curr = curr->next;
 	}
@@ -380,11 +457,8 @@ int walk(const char *name, const struct stat *filestat, int type, struct FTW *f)
         file_t = filestat->st_mtime;
 
         strncpy(ID_buffer, filename, sizeof(ID_buffer));
-        if ((ID = strtok(ID_buffer, DOT_DELIM)) == NULL)
-            ERR("strtok");
-
-        if ((part = strtok(NULL, DOT_DELIM)) == NULL)
-            ERR("strtok");
+        if ((ID = strtok(ID_buffer, ".")) == NULL) ERR("strtok");
+        if ((part = strtok(NULL, ".")) == NULL) ERR("strtok");
             
         i = part[PART_INDEX_IN_STRING] - '0';
     
@@ -399,8 +473,8 @@ int walk(const char *name, const struct stat *filestat, int type, struct FTW *f)
     }
     else
     {
-        OPT->wrong_filename = filename;
-        incorrect_file(OPT);
+        OPT->mistake_filename = filename;
+        wakeup_mistake_writer(OPT);
     }
 
     return 0;
@@ -408,14 +482,23 @@ int walk(const char *name, const struct stat *filestat, int type, struct FTW *f)
 
 void *file_scanner(void *void_args)
 {
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    // pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     options_t *OPT = void_args;
+    pthread_mutex_lock(OPT->mx_mistake);
+    // pthread_mutex_lock(OPT->mx_mistake_written);
+    // pthread_cond_signal(OPT->cv_mistake); 
+
 
     if(nftw(".", walk, MAXFD, FTW_PHYS) != 0) printf("%s: brak dostępu\n", OPT->PATH);
 
 	OPT->work_finished = true;
+    OPT->new_mistake = true;
+    wakeup_mistake_writer(OPT);
 	pthread_kill(OPT->threads[1], SIGUSR1);
 
+
+    // pthread_mutex_unlock(OPT->mx_mistake_written);
+    pthread_mutex_unlock(OPT->mx_mistake);
     return NULL;
 }
 
@@ -436,8 +519,7 @@ void append_student(student_t **stud, time_t start_t)
 {
     student_t *temp = (*stud)->next;
 	(*stud)->next = (student_t *)calloc(1, sizeof(student_t));
-	if ((*stud)->next == NULL)
-		ERR("malloc");
+	if ((*stud)->next == NULL) ERR("malloc");
 	(*stud) = (*stud)->next;
 	(*stud)->next = temp;
 	(*stud)->parts_send = 1;
@@ -451,19 +533,17 @@ void update_student(student_t *stud, time_t part_t, time_t final_t, int part)
 	stud->minutes_late = final_t > part_t ? 0 : (part_t - final_t) / 60;
 }
 
-void incorrect_file(options_t * OPT)
+void wakeup_mistake_writer(options_t *OPT)
 {
-    if (match(OPT->wrong_filename, CORRECT_EXTENSION_REGEX) == 1)
-    {
-        OPT->new_mistake = true;	// Informacja dla wątku [2] o nowym zauważonym błędzie
+    // pthread_mutex_lock(OPT->mx_mistake);
+    OPT->new_mistake = true;
+    pthread_cond_broadcast(OPT->cv_mistake);
+    pthread_mutex_unlock(OPT->mx_mistake);
 
-        // Wątek [0] oczekuje na informację zwrotną od wątku [2] o zapisaniu błędu
-        while (1)
-        {
-            if (OPT->new_mistake == false)
-                break;
-        }
-    }
+    pthread_mutex_lock(OPT->mx_mistake);
+    while (OPT->new_mistake == true)
+        pthread_cond_wait(OPT->cv_mistake, OPT->mx_mistake);
+    // pthread_mutex_unlock(OPT->mx_mistake);
 }
 
 void free_list(student_t *head)
@@ -527,8 +607,7 @@ void *result_writer(void *void_args)
         }
     }
 
-    if(-1 == close(f)) 
-        ERR("close");
+    if(-1 == close(f)) ERR("close");
     return NULL;
 }
 
@@ -541,41 +620,42 @@ void log_cleanup_handler(void *void_args)
     close(*f);
 }
 
+void mistake_writer_cleanup_handler(void *void_args)
+{
+    int *file = void_args;
+    close(*file);
+}
+
 void *mistake_writer(void *void_args)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     options_t *OPT = void_args;
-    int f;
+    char *last_filename = NULL;
+    int file;
 
-    time_t t = time(NULL);
-	struct tm *curr_t;
-    char time_buffer[DATE_LENGTH + 1];
-    
+    pthread_cleanup_push(mistake_writer_cleanup_handler, &file);
 
-    if((f = open(OPT->LOG_FILENAME, O_CREAT|O_RDWR|O_TRUNC, 0644)) == -1) 
-        ERR("open");
+    if((file = open(OPT->LOG_FILENAME, O_CREAT|O_RDWR|O_TRUNC, 0644)) == -1) ERR("open");
 
-    // pthread_cleanup_push(log_cleanup_handler, &f);
     while (1)
     {
-        if (OPT->new_mistake == true)
-        {
-            curr_t = localtime(&t);
-            strftime(time_buffer, sizeof(time_buffer), "%d.%m.%Y_%H:%M", curr_t);
+        pthread_mutex_lock(OPT->mx_mistake);
+        while (OPT->new_mistake == false)
+            pthread_cond_wait(OPT->cv_mistake, OPT->mx_mistake);
+        pthread_mutex_unlock(OPT->mx_mistake);
+        
 
-            write(f, "[", 1); 
-            write(f, time_buffer, strlen(time_buffer)); 
-            write(f, "] (", 3); 
-            write(f, OPT->wrong_filename, strlen(OPT->wrong_filename)); 
-            write(f, ") ", 2); 
-
-            if (match(OPT->wrong_filename, INCORRECT_PART_REGEX) == 1)
-                write(f, INCORRECT_PART_MESSAGE, LOG_MESSAGE_LENGTH);
-            else
-                write(f, INCORRECT_FILENAME_MESSAGE, LOG_MESSAGE_LENGTH);
-
-            OPT->new_mistake = false;
+        if (OPT->work_finished == false)
+        {   
+            last_filename = OPT->mistake_filename;
+            printf("%s\n", last_filename);
+            write_mistake_to_file(file, OPT->mistake_filename, 0);
         }
+        
+        pthread_mutex_lock(OPT->mx_mistake);
+        OPT->new_mistake = false;
+        pthread_cond_broadcast(OPT->cv_mistake);
+        pthread_mutex_unlock(OPT->mx_mistake);
 
         if (OPT->work_finished == true)
         {
@@ -583,8 +663,29 @@ void *mistake_writer(void *void_args)
         }
     }
 
-    if(-1 == close(f)) ERR("close");
-    
-    // pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
     return NULL;
+}
+
+void write_mistake_to_file(int file, char *mistake_filename, int mistake_type)
+{
+    static char str_buffer[MAX_BUF_LENGTH];
+    static time_t t;
+    static struct tm *curr_t;
+
+    t = time(NULL);
+    strncpy(str_buffer, mistake_filename, MAX_BUF_LENGTH);
+    curr_t = localtime(&t);
+    strftime(str_buffer, sizeof(str_buffer), "%d.%m.%Y_%H:%M", curr_t);
+
+    write(file, "[", 1);
+    write(file, str_buffer, strlen(str_buffer));
+    write(file, "] (", 3);
+    write(file, mistake_filename, strlen(mistake_filename));
+    write(file, ") ", 2);
+
+    if (match(mistake_filename, INCORRECT_PART_REGEX) == 1)
+        write(file, "Niepoprawny numer etapu\n", LOG_MESSAGE_LENGTH);
+    else
+        write(file, "Niepoprawna nazwa pliku\n", LOG_MESSAGE_LENGTH);
 }

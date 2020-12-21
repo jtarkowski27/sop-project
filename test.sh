@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in $(seq 10)
+for i in $(seq 1000)
 do
-    rm "test2/${i}.etap6.tar.bz2"
+    touch "test2/${i}.etap1.tar.bz2"
 done
